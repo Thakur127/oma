@@ -1,74 +1,110 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Container } from "@/components/ui/container";
+import { Heading } from "@/components/ui/heading";
+import { useRefreshState } from "@/hooks/useRefreshState";
+import { getSupabaseClient } from "@/lib/db/supabase";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { greet } from "@/lib/utils";
+import { storesState } from "@/recoil-state/stores.state";
+import { Store } from "@/types/store";
+import { router } from "expo-router";
+import { useEffect } from "react";
+import {
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useRecoilState } from "recoil";
 
-export default function HomeScreen() {
+export default function IndexTab() {
+  // const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useRecoilState<Store[]>(storesState);
+
+  const fetchStores = async () => {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase
+      .from("stores")
+      .select()
+      .returns<Store[]>();
+    if (error) {
+      Alert.alert(error.message);
+    }
+    setStores(data || []);
+  };
+
+  useEffect(() => {
+    if (stores.length === 0) fetchStores();
+  }, []);
+
+  const { refresh, handleRefresh } = useRefreshState(fetchStores);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <Container>
+      <Heading title={greet()} className="mb-8" />
+      {/* <Heading title="Stores" icon={<Text className="text-3xl">🛒</Text>} /> */}
+      <View>
+        <FlatList
+          data={stores}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => {
+            return (
+              <Card
+                key={item.id}
+                className={`relative mb-4 ${refresh && "opacity-50"}`}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    router.push(`/store/${item.id}`);
+                  }}
+                >
+                  <CardContent className="flex-row ">
+                    <Image
+                      source={{ uri: item.image_url }}
+                      style={{ width: 80, height: 80 }}
+                      alt={item.name}
+                      className="bg-neutral-300 dark:bg-gray-400"
+                    />
+
+                    <CardHeader className="max-w-fit pt-3">
+                      <CardTitle className="mb-1">{item.name}</CardTitle>
+                      <CardDescription>{item.description}</CardDescription>
+                    </CardHeader>
+                  </CardContent>
+                </TouchableOpacity>
+              </Card>
+            );
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refresh}
+              onRefresh={handleRefresh}
+              colors={["grey"]}
+              progressBackgroundColor={"black"}
+            />
+          }
+          ListEmptyComponent={() => {
+            return (
+              <View className="items-center justify-center h-80">
+                <Text className="text-gray-600 dark:text-gray-300 text-2xl font-semibold">
+                  No store found
+                </Text>
+
+                <Text className="mt-4 text-gray-400">Pull down to refresh</Text>
+              </View>
+            );
+          }}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </View>
+    </Container>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
