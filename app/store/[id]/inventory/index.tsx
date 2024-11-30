@@ -44,6 +44,8 @@ export default function Categories() {
         `
       )
       .eq("store_id", store_id)
+      .is("is_active", true)
+      .is("is_deleted", false)
       .returns<Category[]>();
     if (error) {
       console.log(error);

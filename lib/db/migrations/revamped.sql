@@ -131,17 +131,72 @@ FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
 
--- since the items table and order table has frequent updates
--- this way is not so optimised, we will update value manually
--- during data updation
-
--- CREATE TRIGGER set_updated_at_items
--- BEFORE UPDATE ON public.items
--- FOR EACH ROW
--- EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER set_updated_at_items
+BEFORE UPDATE ON public.items
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
 
--- CREATE TRIGGER set_updated_at_orders
--- BEFORE UPDATE ON public.orders
--- FOR EACH ROW
--- EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER set_updated_at_orders
+BEFORE UPDATE ON public.orders
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+
+
+CREATE TYPE public.order_item_type AS (
+    item_id bigint,
+    quantity int
+);
+
+-- this function creates order internally
+create or replace function create_order(
+    o_store_id bigint, 
+    o_items order_item_type[], 
+    o_status order_status default 'pending'::order_status
+    )
+returns table(
+    "id" bigint, 
+    "total" numeric(10, 2), 
+    "status" order_status, 
+    "created_at" timestamp, 
+    "store_id" bigint
+    )
+as $$
+declare new_order_id bigint;
+declare item order_item_type;
+declare order_total numeric(10, 2) := 0;
+declare item_total numeric(10, 2) := 0;
+begin
+
+    -- create the order
+    insert into public.orders(store_id, total, status) 
+    values (o_store_id, '0', o_status) returning orders.id into new_order_id;
+
+    -- add items in the order
+    foreach item in array o_items
+    loop
+        insert into public.order_items(order_id, item_id, quantity) values (new_order_id, item.item_id, item.quantity);
+        
+        -- calculate item total
+        select price * item.quantity into item_total from public.items where items.id = item.item_id;
+
+        -- add item total into order total
+        order_total := order_total + item_total;
+    end loop;
+
+    -- update the order total
+    update public.orders set total = order_total where orders.id = new_order_id;
+
+    -- return the order details
+    return query 
+        select 
+            public.orders.id, 
+            public.orders.total, 
+            public.orders.status, 
+            public.orders.created_at, 
+            public.orders.store_id 
+        from public.orders 
+        where public.orders.id = new_order_id;
+end;
+$$ language plpgsql;

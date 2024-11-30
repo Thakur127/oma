@@ -14,7 +14,7 @@ export function greet() {
       ? "Evening, Sunset 🌤️"
       : hour < 19
       ? "Tea break ☕!"
-      : hour < 20
+      : hour < 22
       ? "Ready to unwind ✨"
       : "Hey, night owl 🌕";
 

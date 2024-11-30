@@ -12,6 +12,7 @@ import {
 import { ordersState } from "@/recoil-state/orders.state";
 import { selectedStore } from "@/recoil-state/stores.state";
 import { Category } from "@/types/inventory";
+import { Order } from "@/types/order";
 
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -112,66 +113,38 @@ export default function NewOrder() {
   };
 
   const placeOrder = async () => {
-    console.log("order placing initiated");
     setIsPlacingOrder(true);
     const supabase = await getSupabaseClient();
-    const { data: newOrder, error } = await supabase
-      .from("orders")
-      .insert({
-        status: "pending",
-        store_id: store_id,
-        total: orderTotal,
+
+    // filter out orders with quantity 0
+    const filteredOrder = order.filter((o) => o.quantity > 0);
+
+    // this call the postgres function which creates the order
+    // and items for the order atomically
+    let { data: newOrder, error } = await supabase
+      .rpc("create_order", {
+        o_items: filteredOrder,
+        o_status: "pending",
+        o_store_id: store_id,
       })
-      .select()
-      .returns<
-        {
-          id: number;
-          created_at: Date;
-        }[]
-      >();
-
-    console.log(newOrder);
-
+      .returns<Order>()
+      .single();
     if (error) {
-      console.log("new_order", error);
+      console.error(error);
       Alert.alert(error.message);
+      setIsPlacingOrder(false);
       return;
     }
-
-    console.log("order id created", newOrder[0].id);
-
-    // add order id to order list and filter out order whose quantity is 0
-    const finalOrder = order
-      .filter((o) => o.quantity > 0)
-      .map((o) => ({
-        order_id: newOrder[0].id,
-        item_id: o.item_id,
-        quantity: o.quantity,
-      }));
-
-    console.log("final order", finalOrder);
-
-    const { data, error: err } = await supabase
-      .from("order_items")
-      .insert(finalOrder);
-
-    if (err) {
-      console.log(err);
-      Alert.alert(err.message);
-    }
-
-    console.log("Items added to order successflly");
-    console.log("Order placed successfully");
 
     // add order to global state
     setOrders((prev) => {
       return [
         {
-          id: newOrder[0].id,
-          status: "pending",
-          created_at: newOrder[0].created_at,
+          id: (newOrder as any)?.id,
+          status: (newOrder as any)?.status,
+          created_at: (newOrder as any)?.created_at,
           store_id: Number(store_id),
-          total: orderTotal,
+          total: (newOrder as any)?.total,
         },
         ...prev,
       ];
@@ -203,13 +176,12 @@ export default function NewOrder() {
                         key={item.id}
                         className="flex-row items-center justify-between my-2 px-4"
                       >
-                        <View className="flex-row flex-grow  items-center">
-                          <Text className="font-normal text-lg dark:text-gray-200">
-                            {item.name}
-                            (₹ {item.price})
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center gap-2 self-end max-w-fit ml-2">
+                        <Text className="font-normal text-lg dark:text-gray-200">
+                          {item.name}
+                          (₹ {item.price})
+                        </Text>
+
+                        <View className="flex-row items-center gap-2   shrink-1">
                           <IconButton
                             name="remove"
                             className="bg-teal-500 disabled:opacity-50"

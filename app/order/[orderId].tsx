@@ -11,7 +11,7 @@ import {
 import { Container } from "@/components/ui/container";
 import { Heading } from "@/components/ui/heading";
 
-import { Order } from "@/types/order";
+import { Order, OrderItem } from "@/types/order";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -58,6 +58,7 @@ export default function OrdersIdScreen() {
         `
         )
         .eq("id", order_id) // Filter by order ID
+        .is("is_deleted", false)
         .returns<Order>()
         .single(); // Fetch only one order
       if (error) console.log(error);
@@ -65,8 +66,9 @@ export default function OrdersIdScreen() {
       data &&
         (data as Order).items &&
         setOrderTotal(
-          (data as Order)?.items.reduce(
-            (total, item) => total + item.quantity * item.item.price,
+          (data as any)?.items.reduce(
+            (total: any, item: OrderItem) =>
+              total + item.quantity * item.item.price,
             0
           )
         );

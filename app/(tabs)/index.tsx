@@ -35,6 +35,8 @@ export default function IndexTab() {
     const { data, error } = await supabase
       .from("stores")
       .select()
+      .is("is_active", true)
+      .is("is_deleted", false)
       .returns<Store[]>();
     if (error) {
       Alert.alert(error.message);
@@ -52,8 +54,9 @@ export default function IndexTab() {
     <Container>
       <Heading title={greet()} className="mb-8" />
       {/* <Heading title="Stores" icon={<Text className="text-3xl">🛒</Text>} /> */}
-      <View>
+      <View className="">
         <FlatList
+          className="h-full"
           data={stores}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => {

@@ -1,122 +1,149 @@
-import OrderCard from "@/components/OrderCard";
+import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+
+import { Alert } from "react-native";
+
 import { Container } from "@/components/ui/container";
-import { Heading } from "@/components/ui/heading";
-import { useRefreshState } from "@/hooks/useRefreshState";
+
 import { getSupabaseClient } from "@/lib/db/supabase";
+
 import { ordersState } from "@/recoil-state/orders.state";
 import { Order } from "@/types/order";
-import { useFocusEffect } from "expo-router";
-import { useEffect, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  RefreshControl,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
 import { useRecoilState } from "recoil";
+
+import OrderList from "@/components/OrderList";
+import { Heading } from "@/components/ui/heading";
 
 export default function RecentOrdersTab() {
   const [orders, setOrders] = useRecoilState(ordersState);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>(orders);
   const [searchOrderId, setSearchOrderId] = useState<string>("");
-  const [debouncedSearchOrderId, setDebouncedSearchOrderId] =
-    useState<string>("");
 
-  const fetchOrders = async () => {
+  // Date Filter State
+  const [filterDateRange, setFilterDateRange] = useState<{
+    startDate: Date | null;
+    endDate: Date | null;
+  }>({
+    startDate: null, // greater date
+    endDate: null, // smaller date
+  });
+  const [filterOrderStatusState, setFilterOrderStatusState] = useState("");
+
+  const fetchOrders = React.useCallback(async () => {
     const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
+
+    // Convert date range to UTC strings if provided
+    const startDate = filterDateRange.startDate
+      ? new Date(
+          filterDateRange.startDate.getTime() -
+            filterDateRange.startDate.getTimezoneOffset() * 60 * 1000
+        ).toISOString()
+      : null;
+
+    const endDate = filterDateRange.endDate
+      ? new Date(
+          filterDateRange.endDate.getTime() -
+            filterDateRange.endDate.getTimezoneOffset() * 60 * 1000
+        ).toISOString()
+      : null;
+
+    let query = supabase
       .from("orders")
       .select("id, total, status, created_at, store_id")
-      .order("created_at", { ascending: false })
-      .returns<Order[]>();
+      .is("is_deleted", false)
+      .order("created_at", { ascending: false });
+
+    // Apply date range filters if available
+    if (startDate && endDate) {
+      query = query.gte("created_at", startDate).lte("created_at", endDate);
+    }
+
+    // Apply status filter if set
+    if (filterOrderStatusState) {
+      query = query.eq("status", filterOrderStatusState);
+    }
+
+    // Execute query
+    const { data, error } = await query.returns<Order[]>();
+
     if (error) {
-      // console.log("Error fetching orders:", error);
+      console.error(error);
       Alert.alert(error.message);
     }
-    setOrders(data || []);
-  };
 
-  const searchedOrders = async () => {
+    setFilteredOrders(data || []);
+    setOrders(data || []);
+  }, [filterDateRange, filterOrderStatusState]);
+
+  const searchOrders = React.useCallback(async () => {
     const supabase = await getSupabaseClient();
+
+    // if searchOrderId is not numeric set it 0
+    let orderId = searchOrderId;
+    if (!/^\d+$/.test(orderId)) orderId = "0";
+
     const { data, error } = await supabase
       .from("orders")
       .select("id, total, status, created_at, store_id")
-      .eq("id", debouncedSearchOrderId)
-      .order("created_at", { ascending: false })
+      .eq("id", orderId)
+      .is("is_deleted", false)
       .returns<Order[]>();
 
     if (error) {
       Alert.alert(error.message);
     }
     setFilteredOrders(data || []);
-  };
-
-  useFocusEffect(() => {
-    if (debouncedSearchOrderId === "") setFilteredOrders(orders);
-  });
-
-  // Initial fetch and refresh logic
-  useEffect(() => {
-    // console.log("orders for store", store?.name, orders);
-    if (orders.length === 0) fetchOrders();
-    if (debouncedSearchOrderId === "") setFilteredOrders(orders);
-    else searchedOrders();
-  }, [debouncedSearchOrderId]);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchOrderId(searchOrderId.trim());
-    }, 500); // 0.5 sec delay
-
-    return () => {
-      clearTimeout(handler);
-    };
   }, [searchOrderId]);
 
-  const { refresh, handleRefresh } = useRefreshState(fetchOrders);
+  // whenever screen focuses
+  useFocusEffect(() => {
+    if (
+      searchOrderId === "" &&
+      filterDateRange.startDate === null &&
+      filterDateRange.endDate === null &&
+      filterOrderStatusState === ""
+    )
+      setFilteredOrders(orders);
+  });
+
+  useEffect(() => {
+    fetchOrders();
+  }, [filterOrderStatusState, filterDateRange]);
+
+  useEffect(() => {
+    // console.log("orders for store", store?.name, orders);
+
+    if (
+      filterDateRange.startDate &&
+      filterDateRange.endDate &&
+      searchOrderId === ""
+    ) {
+      fetchOrders();
+      return;
+    }
+
+    if (orders.length === 0) {
+      fetchOrders();
+      return;
+    }
+    if (searchOrderId === "") setFilteredOrders(orders);
+    else searchOrders();
+  }, [searchOrderId, filterDateRange]);
 
   return (
-    <Container className="flex-1 p-4">
+    <Container>
       <Heading title="Recent Orders" />
-      <View className="mb-4">
-        {/* Search Bar */}
-        <TextInput
-          value={searchOrderId}
-          onChangeText={(text) => setSearchOrderId(text)}
-          placeholder="Search orders..."
-          placeholderTextColor="#9CA3AF"
-          className="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 rounded-full px-4 py-4 mb-4 shadow-md"
-        />
-      </View>
-
-      <FlatList
-        className=" mb-4"
-        data={filteredOrders}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => {
-          return <OrderCard key={item.id} item={item} />;
-        }}
-        refreshControl={
-          <RefreshControl
-            onRefresh={handleRefresh}
-            refreshing={refresh}
-            colors={["#9CA3AF"]}
-            progressBackgroundColor={"black"}
-          />
-        }
-        ListEmptyComponent={() => {
-          return (
-            <View className="items-center justify-center h-80">
-              <Text className="text-gray-600 dark:text-gray-300 text-2xl font-semibold">
-                No order found
-              </Text>
-
-              <Text className="mt-4 text-gray-400">Pull down to refresh</Text>
-            </View>
-          );
-        }}
+      <OrderList
+        orders={filteredOrders}
+        setOrders={setFilteredOrders}
+        searchOrderId={searchOrderId}
+        setSearchOrderId={setSearchOrderId}
+        filterDateRange={filterDateRange}
+        setFilterDateRange={setFilterDateRange}
+        fetchOrders={fetchOrders}
+        searchOrders={searchOrders}
+        filterOrderStatusState={filterOrderStatusState}
+        setFilterOrderStatusState={setFilterOrderStatusState}
       />
     </Container>
   );

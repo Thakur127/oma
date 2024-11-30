@@ -44,14 +44,14 @@ export default function CategoryCard({
     <Card key={category.id} className="mb-4">
       <CardContent>
         <View className="flex-row items-center justify-between pr-4">
-          <View className="flex-row items-start gap-2">
+          <View className="flex-row items-center gap-2">
             <Image
               source={{
-                uri: category?.image_url || "https://example.com/image1.jpg",
+                uri: category?.image_url,
               }}
               width={80}
               height={80}
-              className="w-20 h-20"
+              className="bg-gray-200 dark:bg-gray-600"
             />
             <CardHeader>
               <CardTitle>{category.name}</CardTitle>
