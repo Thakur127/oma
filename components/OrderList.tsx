@@ -12,8 +12,6 @@ import {
 
 import OrderCard from "@/components/OrderCard";
 
-import { Heading } from "@/components/ui/heading";
-
 import { useRefreshState } from "@/hooks/useRefreshState";
 
 import { Order } from "@/types/order";
@@ -44,7 +42,7 @@ interface OrderListProps {
   searchOrders: () => void;
 }
 
-export default function OrderList({
+function OrderList({
   orders,
   searchOrderId,
   setSearchOrderId,
@@ -108,6 +106,10 @@ export default function OrderList({
     return unsubscribe;
   }, [navigation]);
 
+  const renderItem = ({ item }: { item: Order }) => (
+    <OrderCard key={item.id} item={item} />
+  );
+
   return (
     <>
       {/* Search Bar */}
@@ -133,7 +135,10 @@ export default function OrderList({
         className="mb-2"
         data={orders}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <OrderCard key={item.id} item={item} />}
+        renderItem={renderItem}
+        initialNumToRender={15} // Render only 15 items initially
+        maxToRenderPerBatch={10} // Render 10 items per batch
+        windowSize={5} // Adjust the size of the rendering window
         ListEmptyComponent={() => (
           <View className="items-center justify-center h-80">
             <Text className="text-gray-600 dark:text-gray-300 text-2xl font-semibold">
@@ -213,3 +218,5 @@ export default function OrderList({
     </>
   );
 }
+
+export default React.memo(OrderList);

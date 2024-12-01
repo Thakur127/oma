@@ -30,22 +30,30 @@ export default function IndexTab() {
   // const [stores, setStores] = useState<Store[]>([]);
   const [stores, setStores] = useRecoilState<Store[]>(storesState);
 
-  const fetchStores = async () => {
+  const fetchStores = async (signal: AbortSignal | null = null) => {
     const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
+    const query = supabase
       .from("stores")
       .select()
       .is("is_active", true)
-      .is("is_deleted", false)
-      .returns<Store[]>();
+      .is("is_deleted", false);
+    if (signal) query.abortSignal(signal);
+
+    const { data, error } = await query.returns<Store[]>();
     if (error) {
-      Alert.alert(error.message);
+      if (error.message !== "AbortError: Aborted") Alert.alert(error.message);
     }
     setStores(data || []);
   };
 
   useEffect(() => {
-    if (stores.length === 0) fetchStores();
+    const controller = new AbortController();
+
+    if (stores.length === 0) fetchStores(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   const { refresh, handleRefresh } = useRefreshState(fetchStores);

@@ -1,6 +1,6 @@
 # OMA - Order Management Application
 
-A mobile app to efficiently manage orders across multiple stores. Multiple users can access and share data.
+A mobile app to efficiently manage orders across multiple stores. Multiple employees/users can access and share data.
 
 ## Features
 
@@ -8,6 +8,10 @@ A mobile app to efficiently manage orders across multiple stores. Multiple users
 - View store inventory
 - Create and view orders
 - Access order details
+
+## Future Features
+
+- Add authorization to isolate each store's data
 
 ## Tech Stack
 

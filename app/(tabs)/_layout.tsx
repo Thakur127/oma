@@ -31,9 +31,9 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="recent-orders"
+        name="orders-history"
         options={{
-          tabBarLabel: "Recent Orders",
+          tabBarLabel: "Orders History",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="receipt-outline" size={size} color={color} />
           ),

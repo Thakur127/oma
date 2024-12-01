@@ -81,7 +81,7 @@ export default function SettingsTab() {
         index={-1} // Initially closed
         enablePanDownToClose={true} // Allows closing by swiping down
       >
-        <BottomSheetView className="p-4 bg-white dark:bg-gray-800">
+        <BottomSheetView className="p-4 bg-white dark:bg-gray-800 h-full">
           <Text className="text-2xl font-bold text-gray-700 dark:text-gray-300 mb-4">
             Manage Database Keys
           </Text>
@@ -108,7 +108,8 @@ export default function SettingsTab() {
             {/* Submit Button */}
             <TouchableOpacity
               onPress={handleSubmit}
-              className="bg-green-500 px-6 py-3 rounded-md"
+              className="bg-green-500 px-6 py-3 rounded-md disabled:opacity-50"
+              disabled={!dbUrl || !anonKey}
             >
               <Text className="text-white text-lg font-semibold">Submit</Text>
             </TouchableOpacity>

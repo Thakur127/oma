@@ -1,11 +1,13 @@
+import * as React from "react";
 import { Category, Product } from "@/types/inventory";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Image, Text, View, Animated } from "react-native";
 
 import { useState, useRef } from "react";
 import { IconButton } from "./ui/icon-button";
+import { ScrollView } from "react-native-gesture-handler";
 
-export default function CategoryCard({
+function CategoryCard({
   category,
   CategoryItemComponent,
   categoryItemComponentHeight = 50,
@@ -73,11 +75,13 @@ export default function CategoryCard({
           }}
         >
           {category.items.length > 0 ? (
-            <View className="bg-gray-50 dark:bg-gray-900   p-4 flex-1">
-              {category.items.map((item, idx) => (
-                <CategoryItemComponent key={idx} item={item} />
-              ))}
-            </View>
+            <ScrollView>
+              <View className="bg-gray-50 dark:bg-gray-900 p-4">
+                {category.items.map((item, idx) => (
+                  <CategoryItemComponent key={idx} item={item} />
+                ))}
+              </View>
+            </ScrollView>
           ) : (
             <View className="bg-gray-50 p-4 ">
               <Text className="text-lg font-medium text-gray-800 dark:text-gray-200">
@@ -91,3 +95,5 @@ export default function CategoryCard({
     </Card>
   );
 }
+
+export default React.memo(CategoryCard);

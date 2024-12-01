@@ -19,7 +19,7 @@ export const IconButton = React.forwardRef<TouchableOpacity, IconButtonProps>(
 
     return (
       <TouchableOpacity
-        className={`${className} p-1 rounded-md`}
+        className={`${className} p-1 rounded-md flex-shrink`}
         ref={ref}
         {...rest}
       >

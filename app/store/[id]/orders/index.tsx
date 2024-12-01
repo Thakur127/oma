@@ -1,13 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  Alert,
-} from "react-native";
-import { RefreshControl } from "react-native-gesture-handler";
+import { Text, View, TouchableOpacity, Alert } from "react-native";
 
 import { Link, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { getSupabaseClient } from "@/lib/db/supabase";
@@ -15,13 +7,12 @@ import { Order } from "@/types/order";
 import { Heading } from "@/components/ui/heading";
 import BackButton from "@/components/BackButton";
 
-import { useRefreshState } from "@/hooks/useRefreshState";
 import { Container } from "@/components/ui/container";
 
 import { useRecoilValue, useSetRecoilState } from "recoil";
 import { ordersState, selectedStoreOrder } from "@/recoil-state/orders.state";
 import { selectedStore } from "@/recoil-state/stores.state";
-import OrderCard from "@/components/OrderCard";
+
 import OrderList from "@/components/OrderList";
 
 export default function Orders() {
@@ -43,8 +34,10 @@ export default function Orders() {
   });
   const [filterOrderStatusState, setFilterOrderStatusState] = useState("");
 
+  const controller = new AbortController();
+
   // Fetch all orders for the store
-  const fetchOrders = async () => {
+  const fetchOrders = async (signal: AbortSignal | null = null) => {
     const supabase = await getSupabaseClient();
 
     // Convert date range to UTC strings if provided
@@ -79,12 +72,16 @@ export default function Orders() {
       query = query.eq("status", filterOrderStatusState);
     }
 
+    if (signal) {
+      query = query.abortSignal(signal);
+    }
+
     // Execute query
     const { data, error } = await query.returns<Order[]>();
 
     if (error) {
       // console.log("Error fetching orders:", error);
-      Alert.alert(error.message);
+      if (error.message !== "AbortError: Aborted") Alert.alert(error.message);
     }
 
     setFilteredOrders(data || []);
@@ -101,22 +98,30 @@ export default function Orders() {
     });
   };
 
-  const searchOrders = async () => {
+  const searchOrders = async (signal: AbortSignal | null = null) => {
     const supabase = await getSupabaseClient();
 
-    let orderId = searchOrderId;
-    if (!/^\d+$/.test(orderId)) orderId = "0";
-    const { data, error } = await supabase
+    if (!/^\d+$/.test(searchOrderId)) {
+      setFilteredOrders([]);
+      return;
+    }
+
+    let query = supabase
       .from("orders")
       .select("id, total, status, created_at, store_id")
       .eq("store_id", store_id)
-      .eq("id", orderId)
+      .eq("id", searchOrderId)
       .is("is_deleted", false)
-      .order("created_at", { ascending: false })
-      .returns<Order[]>();
+      .order("created_at", { ascending: false });
+
+    if (signal) query = query.abortSignal(signal);
+
+    const { data, error } = await query.returns<Order[]>();
 
     if (error) {
-      Alert.alert(error.message);
+      if (error.message !== "AbortError: Aborted") {
+        Alert.alert(error.message);
+      }
     }
     setFilteredOrders(data || []);
   };
@@ -133,7 +138,11 @@ export default function Orders() {
   });
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [filterOrderStatusState, filterDateRange]);
 
   // Initial fetch and refresh logic
@@ -144,16 +153,19 @@ export default function Orders() {
       filterDateRange.endDate &&
       searchOrderId === ""
     ) {
-      fetchOrders();
-
+      fetchOrders(controller.signal);
       return;
     }
     if (orders.length === 0) {
-      fetchOrders();
+      fetchOrders(controller.signal);
       return;
     }
     if (searchOrderId === "") setFilteredOrders(orders);
-    else searchOrders();
+    else searchOrders(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [store_id, searchOrderId, filterDateRange]);
 
   return (

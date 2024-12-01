@@ -3,6 +3,7 @@ import CategoryCard from "@/components/CategoryCard";
 import { Container } from "@/components/ui/container";
 import { Heading } from "@/components/ui/heading";
 import { IconButton } from "@/components/ui/icon-button";
+import { Separator } from "@/components/ui/separator";
 import { getSupabaseClient } from "@/lib/db/supabase";
 
 import {
@@ -14,9 +15,9 @@ import { selectedStore } from "@/recoil-state/stores.state";
 import { Category } from "@/types/inventory";
 import { Order } from "@/types/order";
 
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Text, TouchableOpacity } from "react-native";
+import { Alert, Animated, Text, TouchableOpacity } from "react-native";
 import { View } from "react-native";
 import { FlatList } from "react-native";
 import { useRecoilValue, useSetRecoilState } from "recoil";
@@ -37,6 +38,9 @@ export default function NewOrder() {
   const [order, setOrder] = useState<OrderItem[]>([]);
   const [orderTotal, setOrderTotal] = useState<number>(0);
   const [isPlacingOrder, setIsPlacingOrder] = useState<boolean>(false);
+
+  const [isOrderSummaryVisible, setIsOrderSummaryVisible] = useState(false);
+  const slideAnim = React.useRef(new Animated.Value(0)).current; // Animation value for the slide
 
   const fetchCategories = React.useCallback(async () => {
     const supabase = await getSupabaseClient();
@@ -60,10 +64,10 @@ export default function NewOrder() {
       .returns<Category[]>();
 
     if (error) {
-      console.log(error);
+      // console.log(error);
       Alert.alert(error.message);
     }
-    console.log("NEW ORDER MENU", data);
+    // console.log("NEW ORDER MENU", data);
     setCategories(data || []);
   }, [store_id]);
 
@@ -125,7 +129,7 @@ export default function NewOrder() {
       .rpc("create_order", {
         o_items: filteredOrder,
         o_status: "pending",
-        o_store_id: store_id,
+        o_store_id: Number(store_id),
       })
       .returns<Order>()
       .single();
@@ -156,6 +160,45 @@ export default function NewOrder() {
     router.back();
   };
 
+  const toggleOrderSummary = () => {
+    if (isOrderSummaryVisible) {
+      // Slide Down Animation
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setIsOrderSummaryVisible(false));
+    } else {
+      setIsOrderSummaryVisible(true);
+      // Slide Up Animation
+      Animated.timing(slideAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const renderOrderItem = ({ item }: { item: OrderItem }) => {
+    const orderItem = categories
+      .flatMap((category) => category.items)
+      .find((i) => i.id === item.item_id);
+
+    return (
+      <View className="flex-row items-center justify-between px-4 py-2">
+        <Text className="text-lg text-gray-800 dark:text-gray-200">
+          {orderItem?.name}
+        </Text>
+        <Text className="text-lg text-gray-600 dark:text-gray-400">
+          {item.quantity} x ₹ {orderItem?.price}
+        </Text>
+        <Text className="text-lg text-gray-800 dark:text-gray-200">
+          ₹ {(item.quantity * (orderItem?.price || 0)).toFixed(2)}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <>
       <Container>
@@ -174,14 +217,14 @@ export default function NewOrder() {
                     return (
                       <View
                         key={item.id}
-                        className="flex-row items-center justify-between my-2 px-4"
+                        className="flex-row items-center justify-between my-2 px-2"
                       >
-                        <Text className="font-normal text-lg dark:text-gray-200">
+                        <Text className="font-normal text-lg dark:text-gray-200 truncate max-w-[75%]">
                           {item.name}
                           (₹ {item.price})
                         </Text>
 
-                        <View className="flex-row items-center gap-2   shrink-1">
+                        <View className="flex-row items-center gap-2">
                           <IconButton
                             name="remove"
                             className="bg-teal-500 disabled:opacity-50"
@@ -212,8 +255,58 @@ export default function NewOrder() {
           />
         </View>
       </Container>
+      {/* Slide-Up Order Summary */}
+      {isOrderSummaryVisible && (
+        <Animated.View
+          style={{
+            transform: [
+              {
+                translateY: slideAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [300, 0], // Adjust slide height
+                }),
+              },
+            ],
+            position: "absolute",
+            bottom: 75,
+            width: "100%",
+            // backgroundColor: "#1f2937", // Dark background
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            padding: 16,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 5,
+            elevation: 5,
+          }}
+          className={"bg-white dark:bg-gray-800"}
+        >
+          <View className="mb-4">
+            <Text className="text-xl font-bold text-gray-800 dark:text-gray-200">
+              Order Summary
+            </Text>
+          </View>
+          <Separator />
+          <FlatList
+            data={order}
+            keyExtractor={(item) => item.item_id.toString()}
+            renderItem={renderOrderItem}
+          />
+          <Separator />
+          <View className="mt-4 px-4 flex-row justify-between">
+            <Text className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+              Total
+            </Text>
+            <Text className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+              ₹ {orderTotal}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
+      {/* Bottom Action Bar */}
       <View
-        className="flex-row items-center justify-between bg-white  dark:bg-gray-800 p-4  mx-0 absolute bottom-0"
+        className="flex-row items-center justify-between bg-white dark:bg-gray-800 p-4 mx-0 absolute bottom-0"
         style={{
           width: "100%",
           shadowColor: "#000",
@@ -223,25 +316,31 @@ export default function NewOrder() {
           elevation: 5,
         }}
       >
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1">
-            <TouchableOpacity
-              className={`p-4 bg-teal-500 rounded-lg max-w-32 disabled:opacity-50 disabled:cursor-not-allowed`}
-              onPress={placeOrder}
-              disabled={Number(orderTotal) === 0 || isPlacingOrder}
-            >
-              <Text className="text-gray-100 dark:text-gray-800 font-semibold text-lg">
-                Place Order
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View className="flex-row items-center gap-2">
-            <Text className="font-semibold text-xl text-gray-800 dark:text-gray-100">
-              ₹ {orderTotal}
-            </Text>
-            <IconButton name="chevron-up" size={24} />
-          </View>
-        </View>
+        <TouchableOpacity
+          className="flex-row items-center gap-2"
+          onPress={toggleOrderSummary}
+        >
+          <Text className="font-semibold text-xl text-gray-800 dark:text-gray-100">
+            ₹ {orderTotal}
+          </Text>
+          <IconButton
+            name={isOrderSummaryVisible ? "chevron-down" : "chevron-up"}
+            size={24}
+            onPress={toggleOrderSummary}
+            // Toggle the slide-up panel
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={`p-4 text-center bg-teal-500 rounded-lg ${
+            Number(orderTotal) === 0 || isPlacingOrder ? "opacity-50" : ""
+          }`}
+          onPress={placeOrder}
+          disabled={Number(orderTotal) === 0 || isPlacingOrder}
+        >
+          <Text className="text-gray-100 font-semibold text-lg">
+            Place Order
+          </Text>
+        </TouchableOpacity>
       </View>
     </>
   );

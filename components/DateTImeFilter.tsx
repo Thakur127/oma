@@ -163,7 +163,7 @@ export default function DateTimeFilter({
                   ? "#e5e7eb"
                   : "#374151"
               }
-              className="mr-2"
+              className=""
             />
             <Text
               className={`${

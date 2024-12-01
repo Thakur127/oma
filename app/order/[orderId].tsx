@@ -29,52 +29,87 @@ import { useSetRecoilState } from "recoil";
 import { ordersState } from "@/recoil-state/orders.state";
 import { getSupabaseClient } from "@/lib/db/supabase";
 
-export default function OrdersIdScreen() {
+import { useRefreshState } from "@/hooks/useRefreshState";
+import { RefreshControl } from "react-native-gesture-handler";
+import { Skeleton } from "@/components/ui/skeleton";
+// import "abortcontroller-polyfill";
+
+interface OrderWithStore extends Order {
+  store?: {
+    id: string;
+    name: string;
+  };
+}
+
+export default function OrderDetailScreen() {
   const { orderId: order_id } = useLocalSearchParams();
 
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<OrderWithStore | null>(null);
   const setOrders = useSetRecoilState(ordersState);
   const [orderTotal, setOrderTotal] = useState(0);
+  const [isLoading, setLoading] = useState(false);
+
+  // console.log(store);
+
+  const fetchOrders = async (signal: AbortSignal | null = null) => {
+    const supabase = await getSupabaseClient();
+    setLoading(true);
+
+    let query = supabase
+      .from("orders")
+      .select(
+        `
+      id,
+      status,
+      created_at,
+      store:stores(
+        id,
+        name
+      ),
+      items:order_items(
+        item_id,
+        quantity,
+        item:items(
+          id,
+          name,
+          price
+        )
+      )
+      `
+      )
+      .eq("id", order_id) // Filter by order ID
+      .is("is_deleted", false);
+
+    if (signal) query = query.abortSignal(signal);
+
+    const { data, error } = await query.returns<OrderWithStore>().single(); // Fetch only one order
+
+    if (error) {
+      // console.log(error);
+      console.log(error.message);
+    }
+
+    // console.log(data);
+    data &&
+      (data as OrderWithStore).items &&
+      setOrderTotal(
+        (data as any)?.items.reduce(
+          (total: any, item: OrderItem) =>
+            total + item.quantity * item.item.price,
+          0
+        )
+      );
+    setOrder(data);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      const supabase = await getSupabaseClient();
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          `
-        id,
-        status,
-        created_at,
-        items:order_items(
-          item_id,
-          quantity,
-          item:items(
-            id,
-            name,
-            price
-          )
-        )
-        `
-        )
-        .eq("id", order_id) // Filter by order ID
-        .is("is_deleted", false)
-        .returns<Order>()
-        .single(); // Fetch only one order
-      if (error) console.log(error);
-      // console.log(data);
-      data &&
-        (data as Order).items &&
-        setOrderTotal(
-          (data as any)?.items.reduce(
-            (total: any, item: OrderItem) =>
-              total + item.quantity * item.item.price,
-            0
-          )
-        );
-      setOrder(data);
+    const controller = new AbortController();
+    fetchOrders(controller.signal);
+
+    return () => {
+      controller.abort();
     };
-    fetchOrders();
   }, [order_id]);
 
   const getStatusStyle = (status: string) => {
@@ -141,12 +176,35 @@ export default function OrdersIdScreen() {
     }
   };
 
+  const { refresh, handleRefresh } = useRefreshState(fetchOrders);
+
+  if (isLoading && !order) {
+    return (
+      <Container>
+        <Heading title={`Order #${order_id}`} icon={<BackButton />} />
+        <View className="">
+          <Skeleton className="h-80 bg-gray-300 dark:bg-gray-600 rounded-lg m-4" />
+        </View>
+      </Container>
+    );
+  }
+
   return (
     <Container>
-      <Heading title={`Order #${order_id}`} icon={<BackButton />} />
+      <Heading
+        title={`${
+          order?.store ? order?.store.name + " " : ""
+        }Order #${order_id}`}
+        icon={<BackButton />}
+      />
       <View className="flex-1">
         {order ? (
-          <ScrollView className="rounded-xl">
+          <ScrollView
+            className="rounded-xl"
+            refreshControl={
+              <RefreshControl refreshing={refresh} onRefresh={handleRefresh} />
+            }
+          >
             <Card className="m-4 shadow-lg">
               <CardContent>
                 <CardHeader className="flex-row items-center justify-between">
@@ -220,11 +278,17 @@ export default function OrdersIdScreen() {
             </Card>
           </ScrollView>
         ) : (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-lg font-semibold text-gray-500 ">
-              Order not found
-            </Text>
-          </View>
+          <ScrollView
+            refreshControl={
+              <RefreshControl refreshing={refresh} onRefresh={handleRefresh} />
+            }
+          >
+            <View className="flex-1 items-center justify-center">
+              <Text className="text-lg font-semibold text-gray-500 ">
+                Order not found
+              </Text>
+            </View>
+          </ScrollView>
         )}
       </View>
     </Container>

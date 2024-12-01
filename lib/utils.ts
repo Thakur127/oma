@@ -4,17 +4,17 @@ export function greet() {
 
   // Determine the appropriate greeting
   const message =
-    hour < 8
+    4 <= hour && hour < 8
       ? "Hello, Early bird  🐦"
-      : hour < 12
+      : 8 <= hour && hour < 12
       ? "Morning, Sunshine ☀️"
-      : hour < 16
+      : 12 <= hour && hour < 16
       ? "Afternoon adventurer 🌞"
-      : hour < 18
+      : 16 <= hour && hour < 18
       ? "Evening, Sunset 🌤️"
-      : hour < 19
+      : 18 <= hour && hour < 19
       ? "Tea break ☕!"
-      : hour < 22
+      : 19 <= hour && hour < 22
       ? "Ready to unwind ✨"
       : "Hey, night owl 🌕";
 

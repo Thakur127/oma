@@ -13,7 +13,7 @@ export const Heading = React.forwardRef<View, HeadingProps>(
     return (
       <View
         ref={ref}
-        className={`${className} flex-row items-center gap-2 mb-4 flex-wrap`}
+        className={`${className} flex-row items-center gap-2 mb-4`}
         {...props}
       >
         {icon}

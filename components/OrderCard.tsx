@@ -1,4 +1,5 @@
-import { Link, router } from "expo-router";
+import * as React from "react";
+import { router } from "expo-router";
 import {
   Card,
   CardContent,
@@ -11,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { formatISTDateTime } from "@/lib/datetime";
 import { Order } from "@/types/order";
 
-export default function OrderCard({ item }: { item: Order }) {
+function OrderCard({ item }: { item: Order }) {
   return (
     <Card className="mb-4 shadow-lg rounded-xl relative">
       <TouchableOpacity
@@ -71,3 +72,5 @@ export default function OrderCard({ item }: { item: Order }) {
     </Card>
   );
 }
+
+export default React.memo(OrderCard);

@@ -2,8 +2,9 @@ import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 import { Alert } from "react-native";
+import { Database } from "./database.types";
 
-let supabase: ReturnType<typeof createClient> | null = null;
+let supabase: ReturnType<typeof createClient<Database>> | null = null;
 
 export const getSupabaseClient = async () => {
   // Fetch stored keys from AsyncStorage
@@ -17,7 +18,7 @@ export const getSupabaseClient = async () => {
 
   // Ensure the Supabase client is initialized only once
   if (!supabase) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       realtime: {},
     });
   }

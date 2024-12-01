@@ -1,11 +1,14 @@
 import * as React from "react";
 
-export const useRefreshState = (callback: () => void) => {
+export const useRefreshState = (
+  callback: (...args: any[]) => void,
+  ...args: any[]
+) => {
   const [refresh, setRefresh] = React.useState(false);
 
   const handleRefresh = () => {
     setRefresh(true);
-    callback();
+    callback(...args);
     setRefresh(false);
   };
 
