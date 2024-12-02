@@ -221,14 +221,14 @@ INSERT INTO public.order_items (order_id, item_id, quantity) VALUES
 (5, 8, 5);  -- 5 Flower Pots
 ```
 
-- For API Keys, Go the Project Settings > Configuration > API. From Project URL Section copy "URL" and "Anon Key" from Project API Keys Section ans store them somewhere.
+- For API Keys, Go the Project Settings > Configuration > API. From Project URL Section copy "URL" and "Anon Key" from Project API Keys Section and store them somewhere.
 
 ### 4. Run the Application
 
 Start the app locally using Expo:
 
 ```bash
-npm expo start [-c]
+npx expo start [-c]
 ```
 
 - Use the `-c` flag to clear the cache.
